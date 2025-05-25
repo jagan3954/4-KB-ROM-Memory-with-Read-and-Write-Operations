@@ -45,6 +45,8 @@ always @(posedge clk) begin
 end
 endmodule
 ~~~
+## OUTPUT :
+![image](https://github.com/user-attachments/assets/eec1b32c-2e1b-4f58-b25a-14ace0c9648a)
 
 
 ## Testbench for 4KB ROM Memory
