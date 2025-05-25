@@ -30,6 +30,7 @@ Capture the waveform and include the simulation results in the final report.
 Verilog Code for 4KB ROM Memory with Read and Write Operations
 In this design, we will implement a 4KB ROM. Since ROM is typically read-only, we will simulate the behavior as if it's writable, but in actual hardware, ROM is typically pre-programmed.
 ## Program 
+## ROM
 4KB = 4096 Bytes = 4096 x 8 bits
 The address width for 4KB memory is 12 bits (2^12 = 4096).
 ~~~
@@ -47,7 +48,6 @@ endmodule
 ~~~
 ## OUTPUT :
 ![image](https://github.com/user-attachments/assets/eec1b32c-2e1b-4f58-b25a-14ace0c9648a)
-
 
 ## Testbench for 4KB ROM Memory
 
@@ -101,6 +101,82 @@ end
 ~~~
 ## Output![image](https://github.com/user-attachments/assets/35d801c8-2e83-4b83-8044-0c054e734e0e)
 
+## RAM
+
+```
+module ram(
+    input clk,
+    input write_enable,
+    input [11:0] address,    
+    input [7:0] data_in,
+    output reg [7:0] data_out
+);
+reg [7:0] ram_block[0:4095];  
+always @(posedge clk) begin
+    if (write_enable)
+        ram_block[address] <= data_in;
+    else
+        data_out <= ram_block[address];
+end
+endmodule
+```
+## OUTPUT
+![image](https://github.com/user-attachments/assets/d6bf4f6d-4fa2-46e5-991a-c27874dd6585)
+
+## 4KB RAM TESTBENCH:
+```
+module ram_tb;
+
+    reg clk;
+    reg write_enable;
+    reg [11:0] address;
+    reg [7:0] data_in;
+    wire [7:0] data_out;
+
+    ram uut (
+        .clk(clk),
+        .write_enable(write_enable),
+        .address(address),
+        .data_in(data_in),
+        .data_out(data_out)
+    );
+
+    initial clk = 0;
+    always #5 clk = ~clk;
+
+    initial begin
+        write_enable = 0;
+        address = 0;
+        data_in = 0;
+
+        #10;
+
+        write_enable = 1;
+
+        address = 12'd0; data_in = 8'hAA; #10;  
+        address = 12'd100; data_in = 8'h55; #10;  
+        address = 12'd4095; data_in = 8'hFF; #10;  
+
+        write_enable = 0;
+
+        address = 12'd0; #10;
+        $display("Read from address 0: %h (expected AA)", data_out);
+
+        address = 12'd100; #10;
+        $display("Read from address 100: %h (expected 55)", data_out);
+
+        address = 12'd4095; #10;
+        $display("Read from address 4095: %h (expected FF)", data_out);
+
+        address = 12'd500; #10;
+        $display("Read from address 500 (unwritten): %h", data_out);
+
+        $finish;
+    end
+endmodule
+```
+## OUTPUT
+![image](https://github.com/user-attachments/assets/fbe045fe-f575-4ff2-9a52-dd4d8fab403c)
 
 ## Conclusion
 In this experiment, a 4KB ROM memory with read and write operations was designed and successfully simulated using Verilog HDL. The testbench verified both the write and read functionalities by simulating the memory operations and observing the output waveforms. The experiment demonstrates how to implement memory operations in Verilog, effectively modeling both the reading and writing processes for ROM.
