@@ -39,9 +39,6 @@ module rom_memory ( input wire clk, input wire write_enable,  input wire [11:0] 
 reg [7:0] rom[0:4095];
 
 always @(posedge clk) begin
-    if (write_enable) begin
-        rom[address] <= data_in;
-    end
     data_out <= rom[address];
 end
 endmodule
@@ -177,6 +174,142 @@ endmodule
 ```
 ## OUTPUT
 ![image](https://github.com/user-attachments/assets/fbe045fe-f575-4ff2-9a52-dd4d8fab403c)
+
+## 4KB FIFO:
+```
+module fifo_4kb (
+    input wire clk,
+    input wire rst,
+    input wire write_en,
+    input wire read_en,
+    input wire [7:0] data_in,
+    output reg [7:0] data_out,
+    output wire full,
+    output wire empty
+);
+    localparam DEPTH = 4096;
+    localparam ADDR_WIDTH = 12;
+    reg [7:0] mem [0:DEPTH-1];
+    reg [ADDR_WIDTH-1:0] write_ptr = 0;
+    reg [ADDR_WIDTH-1:0] read_ptr = 0;
+    reg [ADDR_WIDTH:0] fifo_count = 0;  
+    assign full = (fifo_count == DEPTH);
+    assign empty = (fifo_count == 0);
+    always @(posedge clk) begin
+        if (rst) begin
+            write_ptr <= 0;
+        end else if (write_en && !full) begin
+            mem[write_ptr] <= data_in;
+            write_ptr <= write_ptr + 1;
+        end
+    end
+    always @(posedge clk) begin
+        if (rst) begin
+            read_ptr <= 0;
+            data_out <= 8'd0;
+        end else if (read_en && !empty) begin
+            data_out <= mem[read_ptr];
+            read_ptr <= read_ptr + 1;
+        end
+    end
+    always @(posedge clk) begin
+        if (rst) begin
+            fifo_count <= 0;
+        end else begin
+            case ({write_en && !full, read_en && !empty})
+                2'b10: fifo_count <= fifo_count + 1; 
+                2'b01: fifo_count <= fifo_count - 1; 
+                default: fifo_count <= fifo_count;   
+            endcase
+        end
+    end
+
+endmodule
+```
+## 4Kb TEST BENCH:
+```
+
+module tb_fifo_4kb;
+
+    reg clk;
+    reg rst;
+    reg write_en;
+    reg read_en;
+    reg [7:0] data_in;
+    wire [7:0] data_out;
+    wire full;
+    wire empty;
+
+    fifo_4kb uut (
+        .clk(clk),
+        .rst(rst),
+        .write_en(write_en),
+        .read_en(read_en),
+        .data_in(data_in),
+        .data_out(data_out),
+        .full(full),
+        .empty(empty)
+    );
+    always #5 clk = ~clk;
+    task write_fifo;
+        input [7:0] data;
+        begin
+            @(posedge clk);
+            if (!full) begin
+                write_en = 1;
+                data_in = data;
+            end
+            @(posedge clk);
+            write_en = 0;
+        end
+    endtask
+    task read_fifo;
+        begin
+            @(posedge clk);
+            if (!empty) begin
+                read_en = 1;
+            end
+            @(posedge clk);
+            read_en = 0;
+        end
+    endtask
+    integer i;
+    initial begin
+        // Initialize signals
+        clk = 0;
+        rst = 1;
+        write_en = 0;
+        read_en = 0;
+        data_in = 8'd0;
+        @(posedge clk);
+        @(posedge clk);
+        rst = 0;
+
+        $display("Writing values to FIFO...");
+        write_fifo(8'hA1);
+        write_fifo(8'hB2);
+        write_fifo(8'hC3);
+        $display("Reading values from FIFO...");
+        read_fifo(); #1 $display("Data out = %h", data_out);
+        read_fifo(); #1 $display("Data out = %h", data_out);
+        read_fifo(); #1 $display("Data out = %h", data_out);
+            $display("FIFO is empty as expected.");
+        else
+            $display("FIFO is NOT empty - ERROR!");
+
+        // Try to read when FIFO is empty
+        read_fifo(); #1 $display("Data out (should be unchanged or invalid) = %h", data_out);
+
+        $display("Filling FIFO to full...");
+        for (i = 0; i < 4096; i = i + 1) begin
+            write_fifo(i[7:0]); // Only low 8 bits are stored
+        end
+    end
+
+endmodule
+```
+## OUTPUT:
+![image](https://github.com/user-attachments/assets/bfd8b10a-ff77-4b92-b1ca-a96aced3b3d9)
 
 ## Conclusion
 In this experiment, a 4KB ROM memory with read and write operations was designed and successfully simulated using Verilog HDL. The testbench verified both the write and read functionalities by simulating the memory operations and observing the output waveforms. The experiment demonstrates how to implement memory operations in Verilog, effectively modeling both the reading and writing processes for ROM.
